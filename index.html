@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pac-Man</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game">
+    <h1>Pac-Man</h1>
+    <div class="hud">
+      <span>Score <strong id="score">0</strong></span>
+      <span>High <strong id="high">0</strong></span>
+      <span>Level <strong id="level">1</strong></span>
+      <span>Lives <strong id="lives">3</strong></span>
+    </div>
+    <canvas id="game" width="560" height="620"></canvas>
+    <div class="controls">
+      <button id="start">Start</button>
+      <button id="pause">Pause</button>
+      <button id="reset">Reset</button>
+    </div>
+    <p class="help">Arrow keys or WASD to move. Enter starts, P pauses.</p>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
