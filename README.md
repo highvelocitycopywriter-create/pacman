@@ -9,3 +9,9 @@ python3 -m http.server
 ```
 
 Arrow keys or WASD move Pac-Man. Enter starts, P pauses.
+
+Run the maze checks with:
+
+```
+node --test
+```
