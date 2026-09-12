@@ -10,7 +10,7 @@ function loadGame() {
   const stubs = `
     const noop = () => {};
     const fakeCtx = new Proxy({}, { get: () => noop, set: () => true });
-    const document = { getElementById: () => ({ addEventListener: noop, getContext: () => fakeCtx }), addEventListener: noop };
+    const document = { getElementById: () => ({ addEventListener: noop, getContext: () => fakeCtx }), querySelectorAll: () => [], addEventListener: noop };
     const localStorage = { getItem: () => null, setItem: noop };
     const performance = { now: () => 0 };
     const requestAnimationFrame = noop;

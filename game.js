@@ -54,6 +54,7 @@ const GHOST_DEFS = [
 const SPEED = { pac: 7, ghost: 6.5, tunnel: 3.5, fright: 4, eyes: 12, house: 4 };
 // Seconds per phase, alternating scatter / chase; chase forever afterwards.
 const MODE_SCHEDULE = [7, 20, 7, 20, 5, 20];
+const FINAL_LEVEL = 3;
 
 const DIRS = {
   up: { dx: 0, dy: -1 },
@@ -222,7 +223,11 @@ function eatPellet() {
   if (!ch) return;
   game.pellets.delete(key);
   addScore(ch === 'o' ? 50 : 10);
-  if (ch !== 'o') return;
+  if (ch !== 'o') {
+    sound.pellet();
+    return;
+  }
+  sound.power();
   game.ghostChain = 0;
   for (const g of game.ghosts) {
     if (g.mode !== 'normal' && g.mode !== 'leaving') continue;
@@ -275,6 +280,21 @@ function ghostTarget(g) {
   return game.chase ? chaseTarget(g) : g.scatter;
 }
 
+function fleeDir(options, here) {
+  const pac = tileOf(game.pac);
+  let best = options[0];
+  let bestDist = -1;
+  for (const dir of options) {
+    const next = { col: here.col + DIRS[dir].dx, row: here.row + DIRS[dir].dy };
+    const d = dist2(next, pac);
+    if (d > bestDist) {
+      bestDist = d;
+      best = dir;
+    }
+  }
+  return best;
+}
+
 function ghostChooseDir(g) {
   const here = g.from;
   if (g.mode === 'leaving' && sameTile(here, GHOST_DOOR)) g.mode = 'normal';
@@ -284,7 +304,7 @@ function ghostChooseDir(g) {
   const options = DIR_NAMES.filter((dir) =>
     dir !== OPPOSITE[g.dir] && ghostCanEnter(g, here.col + DIRS[dir].dx, here.row + DIRS[dir].dy));
   if (options.length === 0) return OPPOSITE[g.dir];
-  if (g.fright > 0 && g.mode === 'normal') return options[Math.floor(Math.random() * options.length)];
+  if (g.fright > 0 && g.mode === 'normal') return fleeDir(options, here);
 
   const target = ghostTarget(g);
   let best = options[0];
@@ -330,13 +350,54 @@ function checkCollisions() {
       g.mode = 'eyes';
       game.ghostChain++;
       addScore(200 * 2 ** (game.ghostChain - 1));
+      sound.ghost();
     } else {
       game.state = 'dying';
       game.timer = 1.5;
+      sound.death();
       return;
     }
   }
 }
+
+// ---------- Sound (Web Audio, no files) ----------
+
+const sound = {
+  ctx: null,
+  enabled: true,
+  waka: false,
+  init() {
+    if (!this.ctx) this.ctx = new AudioContext();
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  },
+  tone(from, to, duration, type = 'square', volume = 0.06) {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(from, t);
+    osc.frequency.exponentialRampToValueAtTime(to, t + duration);
+    gain.gain.setValueAtTime(volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    osc.connect(gain).connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + duration);
+  },
+  pellet() {
+    this.waka = !this.waka;
+    this.tone(this.waka ? 440 : 330, this.waka ? 330 : 440, 0.08);
+  },
+  power() {
+    this.tone(200, 400, 0.3, 'sawtooth');
+  },
+  ghost() {
+    this.tone(400, 1200, 0.4, 'triangle');
+  },
+  death() {
+    this.tone(600, 80, 1.2, 'sawtooth', 0.08);
+  },
+};
 
 // ---------- Game flow ----------
 
@@ -373,11 +434,12 @@ function resetGame() {
 }
 
 function startGame() {
+  sound.init();
   if (game.state === 'paused') {
     game.state = 'playing';
     return;
   }
-  if (game.state !== 'idle' && game.state !== 'gameover') return;
+  if (game.state !== 'idle' && game.state !== 'gameover' && game.state !== 'won') return;
   resetGame();
   game.state = 'ready';
   game.timer = 2;
@@ -436,7 +498,10 @@ function update(dt) {
       break;
     case 'levelclear':
       game.timer -= dt;
-      if (game.timer <= 0) nextLevel();
+      if (game.timer <= 0) {
+        if (game.level >= FINAL_LEVEL) game.state = 'won';
+        else nextLevel();
+      }
       break;
   }
 }
@@ -551,17 +616,29 @@ const OVERLAY_TEXT = {
   ready: 'READY!',
   paused: 'PAUSED',
   gameover: 'GAME OVER',
+  won: 'YOU WIN!',
   levelclear: 'LEVEL CLEAR',
 };
+const RESTART_HINT = 'PRESS START TO PLAY AGAIN';
 
 function drawOverlay() {
   const text = OVERLAY_TEXT[game.state];
   if (!text) return;
-  ctx.fillStyle = game.state === 'gameover' ? '#ff0000' : '#ffe600';
-  ctx.font = 'bold 18px "Courier New", monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, COLS * TILE / 2, 17 * TILE + TILE / 2);
+  drawBanner(text, 17, game.state === 'gameover' ? '#ff0000' : '#ffe600', 18);
+  if (game.state === 'gameover' || game.state === 'won') drawBanner(RESTART_HINT, 20, '#fff', 13);
+}
+
+function drawBanner(text, row, color, size) {
+  ctx.font = `bold ${size}px "Courier New", monospace`;
+  const width = ctx.measureText(text).width + 16;
+  const x = COLS * TILE / 2;
+  const y = row * TILE + TILE / 2;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x - width / 2, y - size, width, size * 2);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
 }
 
 function drawHud() {
@@ -590,6 +667,7 @@ document.addEventListener('keydown', (event) => {
   const dir = KEYS[key];
   if (dir) {
     event.preventDefault();
+    sound.init();
     game.pac.want = dir;
   } else if (key === 'p') {
     togglePause();
@@ -601,6 +679,37 @@ document.addEventListener('keydown', (event) => {
 document.getElementById('start').addEventListener('click', startGame);
 pauseButton.addEventListener('click', togglePause);
 document.getElementById('reset').addEventListener('click', resetGame);
+const soundButton = document.getElementById('sound');
+soundButton.addEventListener('click', () => {
+  sound.enabled = !sound.enabled;
+  soundButton.textContent = sound.enabled ? 'Sound: On' : 'Sound: Off';
+});
+
+for (const button of document.querySelectorAll('.dpad button')) {
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    sound.init();
+    game.pac.want = button.dataset.dir;
+  });
+}
+
+const SWIPE_MIN = 24;
+let swipeStart = null;
+canvas.addEventListener('pointerdown', (event) => {
+  sound.init();
+  swipeStart = { x: event.clientX, y: event.clientY };
+});
+canvas.addEventListener('pointermove', (event) => {
+  if (!swipeStart) return;
+  const dx = event.clientX - swipeStart.x;
+  const dy = event.clientY - swipeStart.y;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_MIN) return;
+  if (Math.abs(dx) > Math.abs(dy)) game.pac.want = dx > 0 ? 'right' : 'left';
+  else game.pac.want = dy > 0 ? 'down' : 'up';
+  swipeStart = null;
+});
+canvas.addEventListener('pointerup', () => { swipeStart = null; });
+canvas.addEventListener('pointercancel', () => { swipeStart = null; });
 
 let last = performance.now();
 function frame(now) {

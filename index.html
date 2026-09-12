@@ -20,8 +20,15 @@
       <button id="start">Start</button>
       <button id="pause">Pause</button>
       <button id="reset">Reset</button>
+      <button id="sound">Sound: On</button>
     </div>
-    <p class="help">Arrow keys or WASD to move. Enter starts, P pauses.</p>
+    <div class="dpad" aria-label="Touch controls">
+      <button data-dir="up" aria-label="Up">&#9650;</button>
+      <button data-dir="left" aria-label="Left">&#9664;</button>
+      <button data-dir="right" aria-label="Right">&#9654;</button>
+      <button data-dir="down" aria-label="Down">&#9660;</button>
+    </div>
+    <p class="help">Arrow keys, WASD, swipe, or the on-screen pad to move. Enter starts, P pauses.</p>
   </main>
   <script src="game.js"></script>
 </body>
