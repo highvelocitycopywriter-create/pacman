@@ -15,10 +15,10 @@ swipe on the maze or use the on-screen pad. Clear three levels to win.
 
 - `src/maze.js`, `src/movement.js`, `src/game.js`: game logic with no browser dependencies.
 - `src/render.js`, `src/sound.js`, `src/main.js`: canvas drawing, Web Audio, and page wiring.
-- `test/`: Node test-runner suites for the maze, movement and collisions, scoring, and win/lose flow.
+- `test/`: Node test-runner suites for the maze, movement and collisions, scoring, win/lose flow, and browser wiring.
 
-Run the tests with:
+Run the tests with `node --test`, or with coverage (thresholds at 80%):
 
 ```
-node --test
+npm test
 ```
